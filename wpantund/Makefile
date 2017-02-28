@@ -1,14 +1,14 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=wpantund
-PKG_VERSION:=2017-01-02
+PKG_VERSION:=2017-02-09-add-commissioner
 PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_URL:=https://github.com/openthread/wpantund.git
+PKG_SOURCE_URL:=https://github.com/NordicSemiconductor/wpantund.git
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=811cef12614ff09d69b5b8b02fc91314dfde4628
+PKG_SOURCE_VERSION:=28c359bd516f71342a84085475776bd056265157
 PKG_FIXUP:=autoreconf
 PKG_BUILD_DEPENDS:=autoconf-archive/host
 PKG_LICENSE:=ASL-2.0
