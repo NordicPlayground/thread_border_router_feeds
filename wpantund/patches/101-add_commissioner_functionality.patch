@@ -1,0 +1,698 @@
+--- a/src/ipc-dbus/DBusIPCAPI_v1.h
++++ b/src/ipc-dbus/DBusIPCAPI_v1.h
+@@ -188,6 +188,16 @@ private:
+ 		DBusMessage *        message
+ 	);
+ 
++	DBusHandlerResult interface_joiner_add_handler(
++		NCPControlInterface* interface,
++		DBusMessage *        message
++	);
++
++	DBusHandlerResult interface_commissioner_enabled_handler(
++		NCPControlInterface* interface,
++		DBusMessage *        message
++	);
++
+ private:
+ 	typedef DBusHandlerResult (interface_handler_cb)(
+ 		NCPControlInterface*,
+--- a/src/ipc-dbus/wpan-dbus-v1.h
++++ b/src/ipc-dbus/wpan-dbus-v1.h
+@@ -76,6 +76,9 @@
+ #define WPANTUND_IF_CMD_PROP_SET              "PropSet"
+ #define WPANTUND_IF_SIGNAL_PROP_CHANGED       "PropChanged"
+ 
++#define WPANTUND_IF_CMD_JOINER_ADD             "JoinerAdd"
++#define WPANTUND_IF_CMD_COMMISSIONER_ENABLED   "CommissionerEnabled"
++
+ // ============================================================================
+ // NestLabs Internal API Interface
+ 
+--- a/src/ncp-dummy/DummyNCPControlInterface.cpp
++++ b/src/ncp-dummy/DummyNCPControlInterface.cpp
+@@ -169,13 +169,32 @@ DummyNCPControlInterface::remove_externa
+ }
+ 
+ void
++DummyNCPControlInterface::joiner_add(
++	const uint8_t *addr,
++	int addr_len,
++	const char *psk,
++	int psk_len,
++	CallbackWithStatus cb
++) {
++	cb(kWPANTUNDStatus_FeatureNotImplemented);
++}
++
++void
++DummyNCPControlInterface::commissioner(
++		bool enabled,
++		CallbackWithStatus cb
++) {
++	cb(kWPANTUNDStatus_FeatureNotImplemented);
++}
++
++void
+ DummyNCPControlInterface::permit_join(
+     int seconds,
+     uint8_t traffic_type,
+     in_port_t traffic_port,
+     bool network_wide,
+     CallbackWithStatus cb
+-    )
++)
+ {
+ 	// TODO: Writeme!
+ 	cb(kWPANTUNDStatus_FeatureNotImplemented);
+--- a/src/ncp-dummy/DummyNCPControlInterface.h
++++ b/src/ncp-dummy/DummyNCPControlInterface.h
+@@ -110,6 +110,16 @@ public:
+ 		CallbackWithStatus cb = NilReturn()
+ 	);
+ 
++	virtual void joiner_add(
++		const uint8_t *addr,
++		int addr_len,
++		const char *psk,
++		int psk_len,
++		CallbackWithStatus cb = NilReturn()
++	);
++
++	virtual void commissioner(bool enabled, CallbackWithStatus cb = NilReturn());
++
+ 	virtual void data_poll(CallbackWithStatus cb = NilReturn());
+ 	virtual void host_did_wake(CallbackWithStatus cb = NilReturn());
+ 
+--- a/src/ncp-spinel/SpinelNCPControlInterface.cpp
++++ b/src/ncp-spinel/SpinelNCPControlInterface.cpp
+@@ -32,6 +32,7 @@
+ #include "string-utils.h"
+ #include "any-to.h"
+ #include "time-utils.h"
++#include "commissioner-utils.h"
+ 
+ #include <cstring>
+ #include <algorithm>
+@@ -305,6 +306,62 @@ SpinelNCPControlInterface::add_external_
+ 	);
+ 
+ bail:
++	return;
++}
++
++void
++SpinelNCPControlInterface::joiner_add(
++		const uint8_t *addr,
++		int addr_len,
++		const char *psk,
++		int psk_len,
++		CallbackWithStatus cb
++) {
++
++	require_action(addr != NULL, bail, cb(kWPANTUNDStatus_InvalidArgument));
++	require_action(psk != NULL, bail, cb(kWPANTUNDStatus_InvalidArgument));
++	require_action(psk_len >= PSK_MIN_LENGTH, bail, cb(kWPANTUNDStatus_InvalidArgument));
++	require_action(psk_len <= PSK_MAX_LENGTH, bail, cb(kWPANTUNDStatus_InvalidArgument));
++	require_action(mNCPInstance->mEnabled, bail, cb(kWPANTUNDStatus_InvalidWhenDisabled));
++
++	mNCPInstance->start_new_task(SpinelNCPTaskSendCommand::Factory(mNCPInstance)
++		.set_callback(cb)
++		.add_command(SpinelPackData(
++			SPINEL_FRAME_PACK_CMD_PROP_VALUE_INSERT(
++			SPINEL_DATATYPE_EUI64_S
++			SPINEL_DATATYPE_DATA_S
++			SPINEL_DATATYPE_UINT8_S
++		),
++		SPINEL_PROP_THREAD_JOINERS,
++		addr,
++		psk,
++		psk_len
++	))
++	.set_lock_property(SPINEL_PROP_THREAD_ALLOW_LOCAL_NET_DATA_CHANGE)
++	.finish()
++	);
++
++bail:
++	return;
++}
++
++void
++SpinelNCPControlInterface::commissioner(
++		bool enabled,
++		CallbackWithStatus cb
++) {
++	require_action(mNCPInstance->mEnabled, bail, cb(kWPANTUNDStatus_InvalidWhenDisabled));
++	mNCPInstance->start_new_task(SpinelNCPTaskSendCommand::Factory(mNCPInstance)
++	.set_callback(cb)
++	.add_command(SpinelPackData(
++		SPINEL_FRAME_PACK_CMD_PROP_VALUE_SET(SPINEL_DATATYPE_BOOL_S),
++		SPINEL_PROP_THREAD_COMMISSIONER_ENABLED,
++		enabled
++	))
++	.finish()
++	);
++
++bail:
+ 	return;
+ }
+ 
+--- a/src/ncp-spinel/SpinelNCPControlInterface.h
++++ b/src/ncp-spinel/SpinelNCPControlInterface.h
+@@ -109,6 +109,16 @@ public:
+ 		CallbackWithStatus cb = NilReturn()
+ 	);
+ 
++	virtual void joiner_add(
++		const uint8_t *addr,
++		int addr_len,
++		const char *psk,
++		int psk_len,
++		CallbackWithStatus cb = NilReturn()
++	);
++
++	virtual void commissioner(bool enabled, CallbackWithStatus cb = NilReturn());
++
+ 	virtual void data_poll(CallbackWithStatus cb = NilReturn());
+ 	virtual void host_did_wake(CallbackWithStatus cb = NilReturn());
+ 
+--- a/src/util/Makefile.am
++++ b/src/util/Makefile.am
+@@ -64,6 +64,7 @@ EXTRA_DIST = \
+ 	Timer.cpp \
+ 	sec-random.h \
+ 	sec-random.c \
++	commissioner-utils.h \
+ 	$(NULL)
+ 
+ DISTCLEANFILES = \
+--- /dev/null
++++ b/src/util/commissioner-utils.h
+@@ -0,0 +1,29 @@
++/*
++ *
++ * Copyright (c) 2017 OpenThread Authors, Inc.
++ * All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ */
++
++#ifndef COMMISSIONER_UTILS_H
++#define COMMISSIONER_UTILS_H
++
++#define PSK_MIN_LENGTH              6
++#define PSK_MAX_LENGTH              32
++#define INVALID_PSK_CHARACTERS      "IOQZ"
++
++#define EXT_ADDRESS_LENGTH          8
++#define EXT_ADDRESS_LENGTH_CHAR     (2*EXT_ADDRESS_LENGTH)
++#endif
+--- a/src/util/string-utils.c
++++ b/src/util/string-utils.c
+@@ -297,3 +297,14 @@ buffer_is_nonzero(const uint8_t* buffer,
+ 	}
+ 	return false;
+ }
++
++bool
++is_hex(const uint8_t* buff, size_t len)
++{
++	while (len--) {
++		if (!isxdigit(*buff++)) {
++			return false;
++		}
++	}
++	return true;
++}
+--- a/src/wpanctl/Makefile.am
++++ b/src/wpanctl/Makefile.am
+@@ -77,6 +77,8 @@ wpanctl_SOURCES = \
+ 	tool-cmd-remove-route.h \
+ 	tool-cmd-pcap.h \
+ 	tool-cmd-pcap.c \
++	tool-cmd-commissioner.h \
++	tool-cmd-commissioner.c \
+ 	$(NULL)
+ 
+ wpanctl_LDADD = \
+--- /dev/null
++++ b/src/wpanctl/tool-cmd-commissioner.c
+@@ -0,0 +1,338 @@
++/*
++ *
++ * Copyright (c) 2017 OpenThread Authors, Inc.
++ * All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *    Description:
++ *      This file implements "commissioner" command in wpanctl.
++ *
++ */
++
++#if HAVE_CONFIG_H
++#include <config.h>
++#endif
++
++#include <getopt.h>
++#include "wpanctl-utils.h"
++#include "tool-cmd-setprop.h"
++#include "assert-macros.h"
++#include "args.h"
++#include "assert-macros.h"
++#include "wpan-dbus-v1.h"
++#include "string-utils.h"
++#include "commissioner-utils.h"
++
++const char commissioner_cmd_syntax[] = "[args] <address> <psk>";
++
++static const arg_list_item_t commissioner_option_list[] = {
++    {'h', "help", NULL, "Print Help"},
++    {'t', "timeout", "ms", "Set timeout period"},
++    {'e', "start", NULL, "Start native commissioner"},
++    {'d', "stop", NULL, "Stop native commissioner"},
++    {'a', "joiner-add", NULL, "Add joiner"},
++    {'r', "joiner-remove", NULL, "Remove joiner"},
++    {'s', "state", NULL, "State information"},
++    {0}
++};
++
++int tool_cmd_commissioner(int argc, char* argv[])
++{
++    int ret = 0;
++    int c;
++    int timeout = DEFAULT_TIMEOUT_IN_SECONDS * 1000;
++    DBusConnection* connection = NULL;
++    DBusMessage *message = NULL;
++    DBusMessage *reply = NULL;
++    DBusError error;
++    const char* property_name = NULL;
++    const char* ext_addr = NULL;
++    const char* psk = NULL;
++    int psk_len = 0;
++    dbus_bool_t enabled = false;
++    const char* invalid_psk_characters = INVALID_PSK_CHARACTERS;
++
++    char path[DBUS_MAXIMUM_NAME_LENGTH+1];
++    char interface_dbus_name[DBUS_MAXIMUM_NAME_LENGTH+1];
++
++    dbus_error_init(&error);
++    while (1) {
++        static struct option long_options[] = {
++            {"help", no_argument, 0, 'h'},
++            {"timeout", required_argument, 0, 't'},
++            {"start", no_argument, 0, 'e'},
++            {"stop", no_argument, 0, 'd'},
++            {"joiner-add", no_argument, 0, 'a'},
++            {"remove", required_argument, 0, 'r'},
++            {"state", no_argument, 0, 's'},
++            {0, 0, 0, 0}
++        };
++
++        int option_index = 0;
++        c = getopt_long(argc, argv, "hst:edr:a", long_options,
++                        &option_index);
++        if (c == -1)
++            break;
++
++        switch (c) {
++        case 'h':
++            print_arg_list_help(commissioner_option_list,
++                                argv[0], commissioner_cmd_syntax);
++            ret = ERRORCODE_HELP;
++            goto bail;
++
++        case 's':
++            //state
++            ret = ERRORCODE_NOT_IMPLEMENTED;
++            goto bail;
++
++        case 't':
++            //timeout
++            timeout = strtol(optarg, NULL, 0);
++            break;
++
++        case 'e':
++            // start (enabled)
++            enabled = true;
++        case 'd':
++            //stop (disabled)
++            ret = lookup_dbus_name_from_interface(interface_dbus_name, gInterfaceName);
++            if (gInterfaceName[0] == 0) {
++                fprintf(stderr,
++                        "%s: error: No WPAN interface set (use the `cd` command, or the `-I` argument for `wpanctl`).\n",
++                        argv[0]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++            connection = dbus_bus_get(DBUS_BUS_STARTER, &error);
++
++            if (!connection) {
++                dbus_error_free(&error);
++                dbus_error_init(&error);
++                connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
++            }
++            require_string(connection != NULL, bail, error.message);
++
++            if (ret != 0) {
++                print_error_diagnosis(ret);
++                goto bail;
++            }
++            snprintf(path,
++                     sizeof(path),
++                     "%s/%s",
++                     WPANTUND_DBUS_PATH,
++                     gInterfaceName);
++
++            message = dbus_message_new_method_call(
++                interface_dbus_name,
++                path,
++                WPANTUND_DBUS_APIv1_INTERFACE,
++                WPANTUND_IF_CMD_COMMISSIONER_ENABLED
++                );
++
++            dbus_message_append_args(
++                message,
++                DBUS_TYPE_BOOLEAN, &enabled,
++                DBUS_TYPE_INVALID
++                );
++
++            reply = dbus_connection_send_with_reply_and_block(
++                connection,
++                message,
++                timeout,
++                &error
++                );
++
++            if (!reply) {
++                fprintf(stderr, "%s: error: %s\n", argv[0], error.message);
++                ret = ERRORCODE_TIMEOUT;
++                goto bail;
++            }
++
++            dbus_message_get_args(reply, &error,
++                                  DBUS_TYPE_INT32, &ret,
++                                  DBUS_TYPE_INVALID
++                                  );
++
++            if (!ret) {
++                fprintf(stderr, "Commissioner command applied.\n");
++            } else {
++                fprintf(stderr, "%s failed with error %d. %s\n", argv[0], ret, wpantund_status_to_cstr(ret));
++                print_error_diagnosis(ret);
++            }
++
++            goto bail;
++
++        case 'r':
++            // remove
++            ret = ERRORCODE_NOT_IMPLEMENTED;
++            goto bail;
++
++        case 'a':
++            if (optind < argc) {
++                if (!ext_addr) {
++                    ext_addr = argv[optind];
++                    optind++;
++                }
++            }
++
++            if (optind < argc) {
++                if (!psk) {
++                    psk = argv[optind];
++                    psk_len = strnlen(psk, PSK_MAX_LENGTH+1);
++                    optind++;
++                }
++            }
++
++            if (optind < argc) {
++                fprintf(stderr,
++                        "%s: error: Unexpected extra argument: \"%s\"\n",
++                        argv[0], argv[optind]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++
++            if (strnlen(ext_addr, EXT_ADDRESS_LENGTH_CHAR+1) != EXT_ADDRESS_LENGTH_CHAR) {
++                fprintf(stderr, "%s: error: Wrong address length.%d \n", argv[0], strnlen(ext_addr, EXT_ADDRESS_LENGTH_CHAR+1));
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++
++            if (!is_hex(ext_addr, EXT_ADDRESS_LENGTH_CHAR)) {
++                fprintf(stderr, "%s: error: Invalid address.\n", argv[0]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++
++            if (!psk) {
++                fprintf(stderr, "%s: error: Missing PSK value.\n", argv[0]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++
++            if (psk_len < PSK_MIN_LENGTH || psk_len > PSK_MAX_LENGTH) {
++                fprintf(stderr, "%s: error: Invalid PSK length.\n", argv[0]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++
++            if (strpbrk(invalid_psk_characters, psk) != 0) {
++                fprintf(stderr, "%s: warning: PSK consists an invalid character\n", argv[0]);
++            }
++
++            if (gInterfaceName[0] == 0) {
++                fprintf(stderr,
++                        "%s: error: No WPAN interface set (use the `cd` command, or the `-I` argument for `wpanctl`).\n",
++                        argv[0]);
++                ret = ERRORCODE_BADARG;
++                goto bail;
++            }
++            connection = dbus_bus_get(DBUS_BUS_STARTER, &error);
++
++            if (!connection) {
++                dbus_error_free(&error);
++                dbus_error_init(&error);
++                connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
++            }
++
++            require_string(connection != NULL, bail, error.message);
++
++            ret = lookup_dbus_name_from_interface(interface_dbus_name, gInterfaceName);
++            if (ret != 0) {
++                print_error_diagnosis(ret);
++                goto bail;
++            }
++            snprintf(path,
++                     sizeof(path),
++                     "%s/%s",
++                     WPANTUND_DBUS_PATH,
++                     gInterfaceName);
++
++            message = dbus_message_new_method_call(
++                interface_dbus_name,
++                path,
++                WPANTUND_DBUS_APIv1_INTERFACE,
++                WPANTUND_IF_CMD_JOINER_ADD
++                );
++
++            if (ext_addr && psk) {
++
++                uint8_t addr_bytes[EXT_ADDRESS_LENGTH];
++                memset(addr_bytes, 0, EXT_ADDRESS_LENGTH);
++
++                int length = parse_string_into_data(addr_bytes,
++                                                    EXT_ADDRESS_LENGTH,
++                                                    ext_addr);
++
++                uint8_t *p_addr_bytes = addr_bytes;
++                assert(length == EXT_ADDRESS_LENGTH);
++                dbus_message_append_args(
++                    message,
++                    DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &p_addr_bytes, EXT_ADDRESS_LENGTH,
++                    DBUS_TYPE_INVALID
++                    );
++                uint8_t psk_bytes[psk_len];
++                memset(psk_bytes, '\0', psk_len+1);
++
++                memcpy(psk_bytes, psk, psk_len);
++                uint8_t *psk = psk_bytes;
++
++                dbus_message_append_args(
++                    message,
++                    DBUS_TYPE_ARRAY, DBUS_TYPE_BYTE, &psk, psk_len+1,
++                    DBUS_TYPE_INVALID
++                    );
++
++                reply = dbus_connection_send_with_reply_and_block(
++                    connection,
++                    message,
++                    timeout,
++                    &error
++                    );
++
++                if (!reply) {
++                    fprintf(stderr, "%s: error: %s\n", argv[0], error.message);
++                    ret = ERRORCODE_TIMEOUT;
++                    goto bail;
++                }
++
++                dbus_message_get_args(reply, &error,
++                                      DBUS_TYPE_INT32, &ret,
++                                      DBUS_TYPE_INVALID
++                                      );
++                if (!ret) {
++                    fprintf(stderr, "Joiner added.\n");
++                } else {
++                    fprintf(stderr, "%s failed with error %d. %s\n", argv[0], ret, wpantund_status_to_cstr(ret));
++                    print_error_diagnosis(ret);
++                }
++            }
++        }
++    }
++
++
++bail:
++    if (connection)
++        dbus_connection_unref(connection);
++
++    if (message)
++        dbus_message_unref(message);
++
++    if (reply)
++        dbus_message_unref(reply);
++
++    dbus_error_free(&error);
++
++    return ret;
++}
+--- /dev/null
++++ b/src/wpanctl/tool-cmd-commissioner.h
+@@ -0,0 +1,30 @@
++/*
++ *
++ * Copyright (c) 2017 OpenThread Authors, Inc.
++ * All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ *    Description:
++ *      This file implements "commissioner" command in wpanctl.
++ *
++ */
++
++#ifndef WPANCTL_TOOL_CMD_COMMISSIONER_H
++#define WPANCTL_TOOL_CMD_COMMISSIONER_H
++
++#include "wpanctl-utils.h"
++
++int tool_cmd_commissioner(int argc, char* argv[]);
++
++#endif // WPANCTL_TOOL_CMD_COMMISSIONER_H
+--- a/src/wpanctl/wpanctl-cmds.h
++++ b/src/wpanctl/wpanctl-cmds.h
+@@ -41,6 +41,7 @@
+ #include "tool-cmd-add-route.h"
+ #include "tool-cmd-remove-route.h"
+ #include "tool-cmd-pcap.h"
++#include "tool-cmd-commissioner.h"
+ 
+ #include "wpanctl-utils.h"
+ 
+@@ -101,6 +102,11 @@
+ 		&tool_cmd_remove_route \
+ 	}, \
+ 	{ \
++		"commissioner", \
++		"Commissioner commands", \
++		&tool_cmd_commissioner \
++	}, \
++	{ \
+ 		"list", \
+ 		"List available interfaces.", \
+ 		&tool_cmd_list \
+--- a/src/wpantund/NCPControlInterface.h
++++ b/src/wpantund/NCPControlInterface.h
+@@ -139,6 +139,19 @@ public:
+ 		CallbackWithStatus cb = NilReturn()
+ 	) = 0;
+ 
++	virtual void joiner_add(
++		const uint8_t *addr,
++		int addr_len,
++		const char *psk,
++		int psk_len,
++		CallbackWithStatus cb = NilReturn()
++	) = 0;
++
++	virtual void commissioner(
++		bool enabled,
++		CallbackWithStatus cb = NilReturn()
++	) = 0;
++
+ 	virtual void remove_external_route(
+ 		const struct in6_addr *prefix,
+ 		int prefix_len_in_bits,
+--- a/third_party/openthread/src/ncp/spinel.h
++++ b/third_party/openthread/src/ncp/spinel.h
+@@ -761,8 +761,8 @@ typedef enum
+     /** Format: `C`
+      */
+     SPINEL_PROP_THREAD_CHILD_COUNT_MAX = SPINEL_PROP_THREAD_EXT__BEGIN + 12,
+-
+-    /// Leader network data
++   
++ /// Leader network data
+     /** Format: `D` - Read only
+      */
+     SPINEL_PROP_THREAD_LEADER_NETWORK_DATA
+@@ -774,6 +774,18 @@ typedef enum
+     SPINEL_PROP_THREAD_STABLE_LEADER_NETWORK_DATA
+                                        = SPINEL_PROP_THREAD_EXT__BEGIN + 14,
+ 
++    /// Thread joiner data
++    /** Format `A(T(EDc))`
++    *  eui64, PSKd, PSKd length
++    */
++    SPINEL_PROP_THREAD_JOINERS = SPINEL_PROP_THREAD_EXT__BEGIN + 15,
++
++    /// Thread commissioner enable
++    /** Format `b`
++    *
++    * Default value is `false`.
++    */
++    SPINEL_PROP_THREAD_COMMISSIONER_ENABLED = SPINEL_PROP_THREAD_EXT__BEGIN + 16,
+     SPINEL_PROP_THREAD_EXT__END        = 0x1600,
+ 
+     SPINEL_PROP_IPV6__BEGIN          = 0x60,
