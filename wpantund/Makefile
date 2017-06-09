@@ -10,6 +10,7 @@ PKG_SOURCE_URL:=https://github.com/openthread/wpantund.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=c2cf75ae22a0c8ef054fb7ab3d9747273ef976f3
 PKG_FIXUP:=autoreconf
+PKG_USE_MIPS16:=0
 PKG_BUILD_DEPENDS:=autoconf-archive/host
 PKG_LICENSE:=ASL-2.0
 
