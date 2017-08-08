@@ -6,7 +6,7 @@ PKG_RELEASE=$(PKG_SOURCE_VERSION)
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
-PKG_SOURCE_URL:=https://github.com/eclipse/paho\%2Emqtt-sn\%2Eembedded-c.git
+PKG_SOURCE_URL:=https://github.com/eclipse/paho.mqtt-sn.embedded-c.git
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_VERSION:=d5b70b19ce2c391929f5f5b2d13afde75f2d63f1
 PKG_USE_MIPS16:=0
@@ -17,7 +17,7 @@ include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/target.mk
 include $(INCLUDE_DIR)/host-build.mk
 
-MAKE_PATH:=$(PKG_SOURCE_SUBDIR)/MQTTSNGateway/
+MAKE_PATH:=MQTTSNGateway/
 
 #define Host/Configure
 #	$(call Host/Configure/Default)
