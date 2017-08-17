@@ -13,7 +13,6 @@ PKG_USE_MIPS16:=0
 PKG_LICENSE:=???
 
 include $(INCLUDE_DIR)/package.mk
-#include $(INCLUDE_DIR)/cmake.mk
 
 define Package/paho-mqtt-sn
 	SECTION:=net
@@ -25,9 +24,6 @@ endef
 define Package/paho-mqtt-sn/description
  paho TODO
 endef
-
-CONFIGURE_ARGS += \
-	--disable-cpplibs
 
 define Build/Configure
 	$(call Build/Configure/Default)
@@ -42,10 +38,10 @@ endef
 define Package/paho-mqtt-sn/install
 	$(INSTALL_DIR) $(1)/usr/bin/
 	$(INSTALL_DIR) $(1)/etc/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/Build/MQTTSNGateway $(1)/usr/bin/
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/Build/MQTTSNLogmonitor $(1)/usr/bin/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/Build/gateway.conf $(1)/usr/bin/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/Build/gateway.conf $(1)/etc/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(MAKE_PATH)/Build/MQTT-SNGateway $(1)/usr/bin/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(MAKE_PATH)/Build/MQTT-SNLogmonitor $(1)/usr/bin/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/gateway.conf $(1)/usr/bin/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/gateway.conf $(1)/etc/
 endef
 
 $(eval $(call BuildPackage,paho-mqtt-sn))
