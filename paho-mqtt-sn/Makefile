@@ -40,8 +40,8 @@ define Package/paho-mqtt-sn/install
 	$(INSTALL_DIR) $(1)/etc/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(MAKE_PATH)/Build/MQTT-SNGateway $(1)/usr/bin/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/$(MAKE_PATH)/Build/MQTT-SNLogmonitor $(1)/usr/bin/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/gateway.conf $(1)/usr/bin/
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/gateway.conf $(1)/etc/
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/gateway.conf $(1)/etc/paho-mqtt-sn-gateway.conf
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/$(MAKE_PATH)/clients.conf $(1)/etc/paho-mqtt-sn-clients.conf
 endef
 
 $(eval $(call BuildPackage,paho-mqtt-sn))
