@@ -8,9 +8,9 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_SUBDIR:=$(PKG_NAME)-$(PKG_VERSION)
 PKG_SOURCE_URL:=https://github.com/eclipse/paho.mqtt-sn.embedded-c.git
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=9c20f2f18dba6bcc807483e9b1612b31cf013678
+PKG_SOURCE_VERSION:=bb1af2251ba5facb3d3d4eb64dbf20833b1729c9
 PKG_USE_MIPS16:=0
-PKG_LICENSE:=???
+PKG_LICENSE:=EDL
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -22,7 +22,7 @@ define Package/paho-mqtt-sn
 endef
 
 define Package/paho-mqtt-sn/description
- paho TODO
+	MQTT-SN gateway provided by the Eclipse Paho.
 endef
 
 define Build/Configure
