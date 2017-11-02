@@ -1,0 +1,17 @@
+--- a/MQTTSNGateway/src/linux/udp6/SensorNetwork.cpp
++++ b/MQTTSNGateway/src/linux/udp6/SensorNetwork.cpp
+@@ -95,10 +95,10 @@ char* SensorNetAddress::getAddress(void)
+ bool SensorNetAddress::isMatch(SensorNetAddress* addr)
+ {
+ 	return ((this->_portNo == addr->_portNo) && \
+-	(this->_IpAddr.sin6_addr.__in6_u.__u6_addr32[0] == addr->_IpAddr.sin6_addr.__in6_u.__u6_addr32[0]) && \
+-	(this->_IpAddr.sin6_addr.__in6_u.__u6_addr32[1] == addr->_IpAddr.sin6_addr.__in6_u.__u6_addr32[1]) && \
+-	(this->_IpAddr.sin6_addr.__in6_u.__u6_addr32[2] == addr->_IpAddr.sin6_addr.__in6_u.__u6_addr32[2]) && \
+-	(this->_IpAddr.sin6_addr.__in6_u.__u6_addr32[3] == addr->_IpAddr.sin6_addr.__in6_u.__u6_addr32[3]));
++	(this->_IpAddr.sin6_addr.__in6_union.__s6_addr32[0] == addr->_IpAddr.sin6_addr.__in6_union.__s6_addr32[0]) && \
++	(this->_IpAddr.sin6_addr.__in6_union.__s6_addr32[1] == addr->_IpAddr.sin6_addr.__in6_union.__s6_addr32[1]) && \
++	(this->_IpAddr.sin6_addr.__in6_union.__s6_addr32[2] == addr->_IpAddr.sin6_addr.__in6_union.__s6_addr32[2]) && \
++	(this->_IpAddr.sin6_addr.__in6_union.__s6_addr32[3] == addr->_IpAddr.sin6_addr.__in6_union.__s6_addr32[3]));
+ }
+ 
+ SensorNetAddress& SensorNetAddress::operator =(SensorNetAddress& addr)

@@ -1,0 +1,15 @@
+--- a/MQTTSNGateway/src/MQTTSNGWDefines.h
++++ b/MQTTSNGateway/src/MQTTSNGWDefines.h
+@@ -22,9 +22,9 @@ namespace MQTTSNGW
+ /*=================================
+  *    Config Parametrs
+  ==================================*/
+-#define CONFIG_DIRECTORY "./"
+-#define CONFIG_FILE      "gateway.conf"
+-#define CLIENT_LIST      "clients.conf"
++#define CONFIG_DIRECTORY "/etc/"
++#define CONFIG_FILE      "paho-mqtt-sn-gateway.conf"
++#define CLIENT_LIST      "paho-mqtt-sn-clients.conf"
+ 
+ /*==========================================================
+  *    Gateway default parameters

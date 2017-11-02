@@ -1,0 +1,18 @@
+--- a/MQTTSNGateway/Makefile
++++ b/MQTTSNGateway/Makefile
+@@ -14,7 +14,7 @@ SRCDIR := src
+ SUBDIR := ../MQTTSNPacket/src
+ 
+ OS := linux
+-SENSORNET := udp
++SENSORNET := udp6
+ TEST := tests
+ 
+ CPPSRCS :=  \
+@@ -137,4 +137,4 @@ install:
+ exectest:
+ 	./$(OUTDIR)/$(TESTPROGNAME) -f ./gateway.conf
+ 
+-	
+\ No newline at end of file
++
