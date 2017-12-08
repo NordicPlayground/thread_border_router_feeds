@@ -1,0 +1,30 @@
+diff --git a/MQTTSNGateway/gateway.conf b/MQTTSNGateway/gateway.conf
+index 46016a4..ce26054 100644
+--- a/MQTTSNGateway/gateway.conf
++++ b/MQTTSNGateway/gateway.conf
+@@ -12,8 +12,8 @@
+ #***************************************************************************
+ 
+ # config file of MQTT-SN Gateway
+-
+-BrokerName=iot.eclipse.org
++# IPv4 Address of iot.eclipse.org 
++BrokerName=198.41.30.241
+ BrokerPortNo=1883
+ BrokerSecurePortNo=8883
+ 
+@@ -36,6 +36,14 @@ GatewayPortNo=10000
+ MulticastIP=225.1.1.1
+ MulticastPortNo=1883
+ 
++# GatewayUDP6Broadcast address is set to all Thread devices address
++# in order to enable Thread Sleepy Devices to receive multicast messages
++# sent from the gateway.
++# UDP6
++GatewayUDP6Port = 47193
++GatewayUDP6Broadcast = ff33:40:fdde:ad00:beef:0:0:1
++GatewayUDP6If = wpan0
++
+ # XBee
+ Baudrate=38400
+ SerialDevice=/dev/ttyUSB0
