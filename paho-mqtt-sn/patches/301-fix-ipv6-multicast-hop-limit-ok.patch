@@ -1,0 +1,20 @@
+Index: paho-mqtt-sn-2017-09-12/MQTTSNGateway/src/linux/udp6/SensorNetwork.cpp
+===================================================================
+--- paho-mqtt-sn-2017-09-12.orig/MQTTSNGateway/src/linux/udp6/SensorNetwork.cpp	2017-12-14 15:21:31.069803086 +0100
++++ paho-mqtt-sn-2017-09-12/MQTTSNGateway/src/linux/udp6/SensorNetwork.cpp	2017-12-14 15:25:37.437807795 +0100
+@@ -267,6 +267,15 @@
+ 		return errnu;
+ 	}
+ 
++        // set hop limit
++        unsigned int hops = 64;
++        errnu = setsockopt(_sockfdMulticast, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &hops, sizeof(hops));
++        if (errnu < 0)
++        {
++                WRITELOG("UDP6::open - limit HOP: %s", strerror(errnu));
++                return errnu;
++        }
++
+ 	_uniPortNo = uniPortNo;
+ 	freeaddrinfo(res);
+ 
